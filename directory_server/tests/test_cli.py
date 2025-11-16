@@ -22,13 +22,13 @@ class MockHTTPHandler(BaseHTTPRequestHandler):
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.end_headers()
-            response = {"status": "healthy"}
-            self.wfile.write(json.dumps(response).encode())
+            health_response = {"status": "healthy"}
+            self.wfile.write(json.dumps(health_response).encode())
         elif self.path == "/status":
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.end_headers()
-            response = {
+            status_response: dict[str, object] = {
                 "network": "mainnet",
                 "uptime_seconds": 3600,
                 "server_status": "running",
@@ -44,13 +44,13 @@ class MockHTTPHandler(BaseHTTPRequestHandler):
                 "active_peers": {"total": 7, "nicks": ["maker1", "maker2"]},
                 "active_connections": 10,
             }
-            self.wfile.write(json.dumps(response).encode())
+            self.wfile.write(json.dumps(status_response).encode())
         elif self.path == "/health_unhealthy":
             self.send_response(503)
             self.send_header("Content-Type", "application/json")
             self.end_headers()
-            response = {"status": "unhealthy"}
-            self.wfile.write(json.dumps(response).encode())
+            unhealthy_response = {"status": "unhealthy"}
+            self.wfile.write(json.dumps(unhealthy_response).encode())
         else:
             self.send_error(404)
 
