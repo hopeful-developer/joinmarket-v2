@@ -33,10 +33,14 @@ jm-refactor/
 ├── jmcore/              # Shared library for all JoinMarket components
 │   ├── src/jmcore/      # Core protocol, crypto, and messaging primitives
 │   └── tests/           # Tests for shared library
-└── directory_server/    # Directory/relay server implementation
-    ├── src/             # Server implementation
-    ├── tests/           # Server tests
-    └── docker/          # Dockerfile and configs
+├── directory_server/    # Directory/relay server implementation
+│   ├── src/             # Server implementation
+│   ├── tests/           # Server tests
+│   └── docker/          # Dockerfile and configs
+└── orderbook_watcher/   # Orderbook aggregation and monitoring
+    ├── src/             # Watcher implementation
+    ├── static/          # Web UI
+    └── tests/           # Watcher tests
 ```
 
 ## Components
@@ -59,6 +63,15 @@ Onion-based relay server for peer discovery and message routing:
 - Message forwarding (public broadcast, private routing)
 - Connection management
 
+### Orderbook Watcher
+
+Real-time orderbook aggregation and monitoring service:
+
+- Connects to directory servers to monitor CoinJoin offers
+- Aggregates and validates orders from makers
+- Bond verification and validation
+- Web-based dashboard for market visibility
+
 ## Development Philosophy
 
 - **SOLID Principles**: Clean architecture with clear separation of concerns
@@ -77,6 +90,7 @@ See individual component READMEs for detailed instructions:
 
 - [jmcore](./jmcore/README.md)
 - [Directory Server](./directory_server/README.md)
+- [Orderbook Watcher](./orderbook_watcher/README.md)
 
 ## Development
 
