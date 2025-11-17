@@ -21,4 +21,7 @@ ENV PYTHONPATH=/app/jmcore/src:/app/orderbook_watcher/src
 
 EXPOSE 8000
 
+HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health').read()" || exit 1
+
 CMD ["python", "-m", "orderbook_watcher.main"]

@@ -22,6 +22,8 @@ services:
     depends_on:
       tor:
         condition: service_healthy
+    healthcheck:
+      disable: true
     deploy:
       resources:
         limits:
