@@ -124,3 +124,34 @@ class ConnectionPool:
 
     def __len__(self) -> int:
         return len(self.connections)
+
+
+async def connect_via_tor(
+    onion_address: str,
+    port: int,
+    socks_host: str = "127.0.0.1",
+    socks_port: int = 9050,
+    max_message_size: int = 40000,
+    timeout: float = 30.0,
+) -> TCPConnection:
+    try:
+        import socket
+
+        import socks
+
+        sock = socks.socksocket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.set_proxy(socks.SOCKS5, socks_host, socks_port)
+        sock.settimeout(timeout)
+
+        logger.info(f"Connecting to {onion_address}:{port} via Tor ({socks_host}:{socks_port})")
+        await asyncio.get_event_loop().run_in_executor(None, sock.connect, (onion_address, port))
+
+        sock.setblocking(False)
+        reader, writer = await asyncio.open_connection(sock=sock)
+
+        logger.info(f"Connected to {onion_address}:{port}")
+        return TCPConnection(reader, writer, max_message_size)
+
+    except Exception as e:
+        logger.error(f"Failed to connect to {onion_address}:{port} via Tor: {e}")
+        raise ConnectionError(f"Tor connection failed: {e}") from e

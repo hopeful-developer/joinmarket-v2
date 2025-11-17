@@ -100,3 +100,85 @@ class HandshakeResponse(BaseModel):
     nick: str = Field(..., min_length=1)
     network: NetworkType
     motd: str = "JoinMarket Directory Server"
+
+
+class OfferType(str, Enum):
+    SW0_ABSOLUTE = "sw0absoffer"
+    SW0_RELATIVE = "sw0reloffer"
+    SWA_ABSOLUTE = "swabsoffer"
+    SWA_RELATIVE = "swreloffer"
+
+
+class Offer(BaseModel):
+    counterparty: str = Field(..., min_length=1)
+    oid: int = Field(..., ge=0)
+    ordertype: OfferType
+    minsize: int = Field(..., ge=0)
+    maxsize: int = Field(..., ge=0)
+    txfee: int = Field(..., ge=0)
+    cjfee: str | int
+    fidelity_bond_value: int = Field(default=0, ge=0)
+    directory_node: str | None = None
+    fidelity_bond_data: dict[str, Any] | None = None
+
+    @field_validator("cjfee")
+    @classmethod
+    def validate_cjfee(cls, v: str | int, info) -> str | int:
+        ordertype = info.data.get("ordertype")
+        if ordertype in (OfferType.SW0_ABSOLUTE, OfferType.SWA_ABSOLUTE):
+            return int(v)
+        return str(v)
+
+    def is_absolute_fee(self) -> bool:
+        return self.ordertype in (OfferType.SW0_ABSOLUTE, OfferType.SWA_ABSOLUTE)
+
+    def calculate_fee(self, amount: int) -> int:
+        if self.is_absolute_fee():
+            return int(self.cjfee)
+        else:
+            from decimal import Decimal
+
+            return int(Decimal(self.cjfee) * Decimal(amount))
+
+
+class FidelityBond(BaseModel):
+    counterparty: str
+    utxo_txid: str = Field(..., pattern=r"^[0-9a-fA-F]{64}$")
+    utxo_vout: int = Field(..., ge=0)
+    bond_value: int | None = Field(default=None, ge=0)
+    locktime: int = Field(..., ge=0)
+    amount: int = Field(default=0, ge=0)
+    script: str
+    utxo_confirmations: int = Field(..., ge=0)
+    utxo_confirmation_timestamp: int = Field(default=0, ge=0)
+    cert_expiry: int = Field(..., ge=0)
+    directory_node: str | None = None
+    fidelity_bond_data: dict[str, Any] | None = None
+
+
+class OrderBook(BaseModel):
+    offers: list[Offer] = Field(default_factory=list)
+    fidelity_bonds: list[FidelityBond] = Field(default_factory=list)
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    directory_nodes: list[str] = Field(default_factory=list)
+
+    def add_offers(self, offers: list[Offer], directory_node: str) -> None:
+        for offer in offers:
+            offer.directory_node = directory_node
+        self.offers.extend(offers)
+        if directory_node not in self.directory_nodes:
+            self.directory_nodes.append(directory_node)
+
+    def add_fidelity_bonds(self, bonds: list[FidelityBond], directory_node: str) -> None:
+        for bond in bonds:
+            bond.directory_node = directory_node
+        self.fidelity_bonds.extend(bonds)
+
+    def get_offers_by_directory(self) -> dict[str, list[Offer]]:
+        result: dict[str, list[Offer]] = {}
+        for offer in self.offers:
+            node = offer.directory_node or "unknown"
+            if node not in result:
+                result[node] = []
+            result[node].append(offer)
+        return result

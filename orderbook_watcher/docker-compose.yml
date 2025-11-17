@@ -1,0 +1,60 @@
+services:
+  orderbook_watcher:
+    build:
+      context: ..
+      dockerfile: orderbook_watcher/Dockerfile
+    container_name: joinmarket_orderbook_watcher
+    environment:
+      - NETWORK=mainnet
+      - DIRECTORY_NODES=3kxw6lf5vf6y26emzwgibzhrzhmhqiw6ekrek3nqfjjmhwznb2moonad.onion:5222,bqlpq6ak24mwvuixixitift4yu42nxchlilrcqwk2ugn45tdclg42qid.onion:5222,coinjointovy3eq5fjygdwpkbcdx63d7vd4g32mw7y553uj3kjjzkiqd.onion:5222,jmarketxf5wc4aldf3slm5u6726zsky52b,qnfv6qyxe5hnafgly6yuyd.onion:5222,odpwaf67rs5226uabcamvypg3y4bngzmfk7255flcdodesqhsvkptaid.onion:5222,satoshi2vcg5e2ept7tjkzlkpomkobqmgtsjzegg6wipnoajadissead.onion:5222,shssats5ucnwdpbticbb4dymjzf2o27tdecpes35ededagjpdmpxm6yd.onion:5222,ylegp63psfqh3zk2hu,ckf2xth6dxvh2z364ykjfmvsoze6tkfjceq7qd.onion:5222,nakamotourflxwjnjpnrk7yc2nhkf6r62ed4gdfxmmn5f4saw5q5qoyd.onion:5222,jmv2dirze66rwxsq7xv7frhmaufyicd3yz5if6obtavsskczjkndn6yd.onion:5222
+      - TOR_SOCKS_HOST=tor
+      - TOR_SOCKS_PORT=9050
+      - MEMPOOL_API_URL=https://mempool.sgn.space/api
+      - HTTP_HOST=0.0.0.0
+      - HTTP_PORT=8000
+      - UPDATE_INTERVAL=60
+      - LOG_LEVEL=TRACE
+    ports:
+      - "8000:8000"
+    networks:
+      - joinmarket_orderbook_internal
+    restart: always
+    depends_on:
+      tor:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: 1
+          memory: 512M
+
+  tor:
+    image: ghcr.io/m0wer/docker-tor:latest
+    container_name: joinmarket_orderbook_tor
+    user: "1000:1000"
+    volumes:
+      - ./tor/conf:/etc/tor:ro
+      - ./tor/data:/var/lib/tor
+      - ./tor/run:/var/run/tor
+    networks:
+      - joinmarket_orderbook_internal
+      - joinmarket_orderbook_external
+    restart: always
+    healthcheck:
+      test: ["CMD", "bash", "-c", "timeout 2 bash -c '</dev/tcp/127.0.0.1/9050' 2>/dev/null"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          cpus: 1
+          memory: 200M
+
+networks:
+  joinmarket_orderbook_internal:
+    driver: bridge
+    internal: true
+  joinmarket_orderbook_external:
+    driver: bridge

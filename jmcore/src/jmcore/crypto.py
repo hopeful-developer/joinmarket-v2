@@ -2,12 +2,56 @@
 Cryptographic primitives for JoinMarket.
 """
 
+import binascii
+import hashlib
+import secrets
+
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
+
+BASE58_ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
+NICK_HASH_LENGTH = 10
+NICK_MAX_ENCODED = 14
 
 
 class CryptoError(Exception):
     pass
+
+
+def base58_encode(data: bytes) -> str:
+    num = int.from_bytes(data, "big")
+    if num == 0:
+        return BASE58_ALPHABET[0]
+
+    result = ""
+    while num > 0:
+        num, remainder = divmod(num, 58)
+        result = BASE58_ALPHABET[remainder] + result
+
+    for byte in data:
+        if byte == 0:
+            result = BASE58_ALPHABET[0] + result
+        else:
+            break
+
+    return result
+
+
+def generate_jm_nick(version: int = 5) -> str:
+    privkey = secrets.token_bytes(32)
+    private_key = ec.derive_private_key(int.from_bytes(privkey, "big"), ec.SECP256K1())
+    public_key = private_key.public_key()
+    pubkey_bytes = public_key.public_bytes(
+        encoding=serialization.Encoding.X962, format=serialization.PublicFormat.UncompressedPoint
+    )
+
+    pubkey_hex = binascii.hexlify(pubkey_bytes)
+    nick_pkh_raw = hashlib.sha256(pubkey_hex).digest()[:NICK_HASH_LENGTH]
+    nick_pkh = base58_encode(nick_pkh_raw)
+
+    nick_pkh += "O" * (NICK_MAX_ENCODED - len(nick_pkh))
+
+    return f"J{version}{nick_pkh}"
 
 
 class KeyPair:

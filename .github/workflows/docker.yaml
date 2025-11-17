@@ -8,6 +8,7 @@ on:
     paths:
       - 'jmcore/**'
       - 'directory_server/**'
+      - 'orderbook_watcher/**'
       - '.github/workflows/docker.yaml'
 
 env:
@@ -30,6 +31,9 @@ jobs:
           - context: .
             dockerfile: ./directory_server/Dockerfile
             image: ghcr.io/${{ github.repository }}-directory-server
+          - context: .
+            dockerfile: ./orderbook_watcher/Dockerfile
+            image: ghcr.io/${{ github.repository }}-orderbook-watcher
 
     permissions:
       contents: read

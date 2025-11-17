@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JoinMarket Orderbook Watcher</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>JoinMarket Orderbook</h1>
+            <div class="header-info">
+                <span id="last-update">Last update: -</span>
+                <a href="https://github.com/m0wer/joinmarket-v2" target="_blank" rel="noopener noreferrer">GitHub</a>
+            </div>
+        </header>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label">Total Offers</div>
+                <div class="stat-value" id="total-offers">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Directory Nodes</div>
+                <div class="stat-value" id="directory-nodes">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Fidelity Bonds</div>
+                <div class="stat-value" id="fidelity-bonds">0</div>
+            </div>
+        </div>
+
+        <div class="directory-stats">
+            <h2>Offers per Directory Node</h2>
+            <div id="directory-breakdown"></div>
+        </div>
+
+        <div class="controls">
+            <div class="filter-group">
+                <label>
+                    Directory Node:
+                    <select id="filter-directory">
+                        <option value="">All</option>
+                    </select>
+                </label>
+            </div>
+            <div class="filter-group">
+                <label>
+                    <input type="text" id="search-counterparty" placeholder="Search counterparty...">
+                </label>
+            </div>
+        </div>
+
+        <div class="table-container">
+            <table id="orderbook-table">
+                <thead>
+                    <tr>
+                        <th class="sortable" data-sort="ordertype">Type</th>
+                        <th class="sortable" data-sort="counterparty">Counterparty</th>
+                        <th class="sortable" data-sort="oid">Order ID</th>
+                        <th class="sortable" data-sort="cjfee">Fee</th>
+                        <th class="sortable" data-sort="minsize">Min Size (sats)</th>
+                        <th class="sortable" data-sort="maxsize">Max Size (sats)</th>
+                        <th class="sortable" data-sort="fidelity_bond_value">Bond Value</th>
+                        <th>Directories</th>
+                    </tr>
+                </thead>
+                <tbody id="orderbook-tbody">
+                </tbody>
+            </table>
+        </div>
+
+    </div>
+
+    <div id="bond-modal" class="bond-modal">
+        <div class="bond-modal-content">
+            <span class="close-modal">&times;</span>
+            <h2>Fidelity Bond Details</h2>
+
+            <div class="bond-detail">
+                <label>Maker Nick:</label>
+                <code id="bond-maker-nick"></code>
+            </div>
+
+            <div class="bond-detail">
+                <label>UTXO Transaction ID:</label>
+                <code id="bond-txid"></code>
+            </div>
+
+            <div class="bond-detail">
+                <label>UTXO Output Index:</label>
+                <code id="bond-vout"></code>
+            </div>
+
+            <div class="bond-detail">
+                <label>Bond Amount (Locked Coins):</label>
+                <code id="bond-amount"></code>
+            </div>
+
+            <div class="bond-detail">
+                <label>Locktime (ISO 8601):</label>
+                <code id="bond-locktime"></code>
+            </div>
+
+            <div class="bond-detail">
+                <label>UTXO Public Key:</label>
+                <code id="bond-utxo-pub"></code>
+            </div>
+
+            <div class="bond-detail">
+                <label>Certificate Expiry (Block Height):</label>
+                <code id="bond-cert-expiry"></code>
+            </div>
+
+            <div class="bond-detail">
+                <label>Redeem Script (hex):</label>
+                <code id="bond-redeem-script"></code>
+            </div>
+
+            <div class="bond-detail">
+                <label>P2WSH Script (hex):</label>
+                <code id="bond-p2wsh-script"></code>
+            </div>
+
+            <h3>Verification Commands</h3>
+
+            <div class="bond-detail">
+                <label>Verify UTXO exists on-chain:</label>
+                <code id="rpc-gettxout"></code>
+            </div>
+
+            <div class="bond-detail">
+                <label>Decode redeem script:</label>
+                <code id="rpc-decodescript"></code>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
