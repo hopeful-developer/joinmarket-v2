@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-import json
 from datetime import datetime
 from typing import Any
 
@@ -217,17 +216,6 @@ class OrderbookAggregator:
 
         try:
             await client.connect()
-            await client.get_peerlist()
-
-            pubmsg = {
-                "type": 687,
-                "line": f"{client.nick}!PUBLIC!!orderbook",
-            }
-
-            if not client.connection:
-                raise RuntimeError("Client not connected")
-            await client.connection.send(json.dumps(pubmsg).encode("utf-8"))
-
             status.mark_connected()
             logger.info(f"Successfully connected to directory: {node_id}")
             return client
