@@ -102,7 +102,6 @@ class DirectoryClient:
         self.nick = generate_jm_nick(JM_VERSION)
         self.offers: dict[tuple[str, int], Offer] = {}
         self.bonds: dict[str, FidelityBond] = {}
-        self.last_seen: dict[str, float] = {}
         self.running = False
         self.on_disconnect = on_disconnect
 
@@ -489,11 +488,10 @@ class DirectoryClient:
         logger.info(f"Starting continuous listener for {self.onion_address}:{self.port}")
         peers_with_bonds: set[str] = set()
         peers_without_bonds: set[str] = set()
-        last_cleanup_time = asyncio.get_event_loop().time()
+        last_peerlist_check_time = asyncio.get_event_loop().time()
         last_orderbook_refresh_time = asyncio.get_event_loop().time()
-        cleanup_interval = 60.0
-        orderbook_refresh_interval = 3600.0
-        stale_timeout = 900.0
+        peerlist_check_interval = 1800.0
+        orderbook_refresh_interval = 1800.0
 
         if self.connection:
             await self.get_peerlist()
@@ -522,7 +520,6 @@ class DirectoryClient:
                         offer_key = (offer.counterparty, offer.oid)
                         is_new_offer = offer_key not in self.offers
                         self.offers[offer_key] = offer
-                        self.last_seen[offer.counterparty] = asyncio.get_event_loop().time()
                         logger.debug(f"Updated offer: {offer_key}")
 
                         if offer.fidelity_bond_data:
@@ -541,13 +538,11 @@ class DirectoryClient:
                     logger.debug(f"Received message type {msg_type}")
 
                 current_time = asyncio.get_event_loop().time()
-                if current_time - last_cleanup_time >= cleanup_interval:
-                    removed_count = self._cleanup_stale_offers(current_time, stale_timeout)
+                if current_time - last_peerlist_check_time >= peerlist_check_interval:
+                    removed_count = await self._cleanup_disconnected_peers()
                     if removed_count > 0:
-                        logger.info(
-                            f"Removed {removed_count} stale offers from inactive counterparties"
-                        )
-                    last_cleanup_time = current_time
+                        logger.info(f"Removed {removed_count} offers from disconnected peers")
+                    last_peerlist_check_time = current_time
 
                 if current_time - last_orderbook_refresh_time >= orderbook_refresh_interval:
                     logger.info("Sending periodic !orderbook refresh")
@@ -578,24 +573,29 @@ class DirectoryClient:
                     self.on_disconnect()
                 await asyncio.sleep(5)
 
-    def _cleanup_stale_offers(self, current_time: float, stale_timeout: float) -> int:
-        stale_counterparties = [
-            counterparty
-            for counterparty, last_seen_time in self.last_seen.items()
-            if current_time - last_seen_time > stale_timeout
-        ]
+    async def _cleanup_disconnected_peers(self) -> int:
+        try:
+            active_peers = await self.get_peerlist()
+            active_peers_set = set(active_peers)
 
-        removed_count = 0
-        for counterparty in stale_counterparties:
-            offers_to_remove = [key for key in self.offers if key[0] == counterparty]
-            for key in offers_to_remove:
-                del self.offers[key]
-                removed_count += 1
-                logger.debug(f"Removed stale offer: {key}")
+            all_counterparties = {key[0] for key in self.offers}
+            disconnected_counterparties = all_counterparties - active_peers_set
 
-            del self.last_seen[counterparty]
+            removed_count = 0
+            for counterparty in disconnected_counterparties:
+                offers_to_remove = [key for key in self.offers if key[0] == counterparty]
+                for key in offers_to_remove:
+                    del self.offers[key]
+                    removed_count += 1
+                    logger.debug(f"Removed offer from disconnected peer: {key}")
 
-        return removed_count
+                if counterparty in self.bonds:
+                    del self.bonds[counterparty]
+
+            return removed_count
+        except Exception as e:
+            logger.warning(f"Failed to fetch peerlist for cleanup: {e}")
+            return 0
 
     def stop(self) -> None:
         self.running = False
