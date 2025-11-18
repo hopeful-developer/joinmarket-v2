@@ -465,7 +465,7 @@ class DirectoryClient:
             logger.warning(f"Failed to parse offer: {e}")
         return None
 
-    async def request_bond_for_maker(self, maker_nick: str, peers_without_bonds: set[str]) -> None:
+    async def request_bond_for_maker(self, maker_nick: str) -> None:
         if not self.connection:
             return
 
@@ -476,12 +476,6 @@ class DirectoryClient:
             }
             await self.connection.send(json.dumps(privmsg).encode("utf-8"))
             logger.debug(f"Requested bond info from {maker_nick}")
-            await asyncio.sleep(2)
-
-            offer_keys = [(k, v) for k, v in self.offers.items() if k[0] == maker_nick]
-            if offer_keys and not any(v.fidelity_bond_data for _, v in offer_keys):
-                peers_without_bonds.add(maker_nick)
-                logger.debug(f"Peer {maker_nick} has no fidelity bond")
         except Exception as e:
             logger.warning(f"Failed to request bond from {maker_nick}: {e}")
 
@@ -539,9 +533,7 @@ class DirectoryClient:
                             logger.debug(
                                 f"New offer from {offer.counterparty} without bond, requesting..."
                             )
-                            await self.request_bond_for_maker(
-                                offer.counterparty, peers_without_bonds
-                            )
+                            await self.request_bond_for_maker(offer.counterparty)
                 elif msg_type == MessageType.PEERLIST.value:
                     logger.debug("Received PEERLIST update")
                 else:
