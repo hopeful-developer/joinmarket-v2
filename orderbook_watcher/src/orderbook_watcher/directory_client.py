@@ -495,24 +495,22 @@ class DirectoryClient:
         orderbook_refresh_interval = 3600.0
         stale_timeout = 900.0
 
+        if self.connection:
+            await self.get_peerlist()
+            pubmsg = {
+                "type": MessageType.PUBMSG.value,
+                "line": f"{self.nick}!PUBLIC!!orderbook",
+            }
+            await self.connection.send(json.dumps(pubmsg).encode("utf-8"))
+            logger.info("Sent initial !orderbook request")
+            last_orderbook_refresh_time = asyncio.get_event_loop().time()
+
         while self.running:
             try:
                 if not self.connection:
-                    logger.info("Reconnecting...")
-                    await self.connect()
-                    await self.get_peerlist()
-                    if not self.connection:
-                        raise DirectoryClientError("Failed to reconnect")
-                    pubmsg = {
-                        "type": MessageType.PUBMSG.value,
-                        "line": f"{self.nick}!PUBLIC!!orderbook",
-                    }
-                    await self.connection.send(json.dumps(pubmsg).encode("utf-8"))
-                    logger.info("Reconnected and sent !orderbook request")
-                    last_orderbook_refresh_time = asyncio.get_event_loop().time()
+                    logger.warning("Connection lost, stopping listener")
+                    break
 
-                if not self.connection:
-                    raise DirectoryClientError("Not connected")
                 response_data = await asyncio.wait_for(self.connection.receive(), timeout=60.0)
                 response = json.loads(response_data.decode("utf-8"))
                 msg_type = response.get("type")

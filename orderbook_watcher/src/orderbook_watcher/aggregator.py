@@ -312,6 +312,7 @@ class OrderbookAggregator:
         for node_id, client in self.clients.items():
             offers = client.get_current_offers()
             bonds = client.get_current_bonds()
+            logger.debug(f"Node {node_id}: {len(offers)} offers, {len(bonds)} bonds")
             for offer in offers:
                 offer.directory_node = node_id
             for bond in bonds:
