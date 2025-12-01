@@ -12,7 +12,7 @@ from directory_server.config import get_settings
 from directory_server.server import DirectoryServer
 
 
-def setup_logging(level: str, log_file: str) -> None:
+def setup_logging(level: str) -> None:
     logger.remove()
 
     logger.add(
@@ -22,19 +22,10 @@ def setup_logging(level: str, log_file: str) -> None:
         colorize=True,
     )
 
-    logger.add(
-        log_file,
-        format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}",
-        level=level,
-        rotation="10 MB",
-        retention="7 days",
-        compression="gz",
-    )
-
 
 async def run_server() -> None:
     settings = get_settings()
-    setup_logging(settings.log_level, settings.log_file)
+    setup_logging(settings.log_level)
 
     logger.info("Starting JoinMarket Directory Server")
     logger.info(f"Network: {settings.network}")

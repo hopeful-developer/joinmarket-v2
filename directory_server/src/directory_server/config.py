@@ -21,7 +21,6 @@ class Settings(BaseSettings):
     message_rate_limit: int = 100
 
     log_level: str = "INFO"
-    log_file: str = "directory_server.log"
 
     motd: str = "JoinMarket Directory Server https://github.com/m0wer/joinmarket-v2"
 
