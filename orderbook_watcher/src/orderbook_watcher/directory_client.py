@@ -165,12 +165,36 @@ class DirectoryClient:
         logger.debug("Sending GETPEERLIST request")
         await self.connection.send(json.dumps(getpeerlist_msg).encode("utf-8"))
 
-        response_data = await asyncio.wait_for(self.connection.receive(), timeout=self.timeout)
-        response = json.loads(response_data.decode("utf-8"))
-        logger.debug(f"Received response type: {response['type']}")
+        start_time = asyncio.get_event_loop().time()
+        response = None
 
-        if response["type"] != MessageType.PEERLIST.value:
-            raise DirectoryClientError(f"Unexpected response type: {response['type']}")
+        while True:
+            elapsed = asyncio.get_event_loop().time() - start_time
+            if elapsed > self.timeout:
+                raise DirectoryClientError("Timed out waiting for PEERLIST response")
+
+            try:
+                # Use remaining time for timeout
+                response_data = await asyncio.wait_for(
+                    self.connection.receive(), timeout=self.timeout - elapsed
+                )
+                response = json.loads(response_data.decode("utf-8"))
+                msg_type = response.get("type")
+                logger.debug(f"Received response type: {msg_type}")
+
+                if msg_type == MessageType.PEERLIST.value:
+                    break
+
+                logger.debug(
+                    f"Skipping unexpected message type {msg_type} while waiting for PEERLIST"
+                )
+            except TimeoutError as e:
+                raise DirectoryClientError("Timed out waiting for PEERLIST response") from e
+            except Exception as e:
+                # If we fail to parse a message, we should probably keep trying unless it's critical
+                logger.warning(f"Error receiving/parsing message while waiting for PEERLIST: {e}")
+                if asyncio.get_event_loop().time() - start_time > self.timeout:
+                    raise DirectoryClientError(f"Failed to get PEERLIST: {e}") from e
 
         peerlist_str = response["line"]
         logger.debug(f"Peerlist string: {peerlist_str}")
