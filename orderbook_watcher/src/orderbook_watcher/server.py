@@ -29,6 +29,7 @@ class OrderbookServer:
         self._cached_orderbook: str | None = None
         self._cache_lock = asyncio.Lock()
         self._background_update_task: asyncio.Task[Any] | None = None
+        self._stopping = False
         self._setup_routes()
 
     def _setup_routes(self) -> None:
@@ -189,6 +190,10 @@ class OrderbookServer:
         )
 
     async def stop(self) -> None:
+        if self._stopping:
+            return
+        self._stopping = True
+
         logger.info("Stopping orderbook server...")
 
         if self._background_update_task:
@@ -206,7 +211,8 @@ class OrderbookServer:
             self.site = None
 
         if self.runner:
-            await self.runner.cleanup()
+            with contextlib.suppress(RuntimeError):
+                await self.runner.cleanup()
             self.runner = None
 
         logger.info("Orderbook server stopped")
