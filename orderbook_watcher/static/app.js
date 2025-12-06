@@ -64,7 +64,22 @@ function updateDirectoryBreakdown() {
 
     const stats = orderbookData.directory_stats || {};
 
-    const sortedEntries = Object.entries(stats).sort((a, b) => b[1].offer_count - a[1].offer_count);
+    // Sort by: 1) bond_offer_count (desc), 2) uptime_percentage (desc), 3) offer_count (desc)
+    const sortedEntries = Object.entries(stats).sort((a, b) => {
+        const [, aData] = a;
+        const [, bData] = b;
+
+        // Primary: bond offers (descending)
+        const bondDiff = (bData.bond_offer_count || 0) - (aData.bond_offer_count || 0);
+        if (bondDiff !== 0) return bondDiff;
+
+        // Secondary: uptime percentage (descending)
+        const uptimeDiff = (bData.uptime_percentage || 0) - (aData.uptime_percentage || 0);
+        if (uptimeDiff !== 0) return uptimeDiff;
+
+        // Tertiary: total offers (descending)
+        return (bData.offer_count || 0) - (aData.offer_count || 0);
+    });
 
     sortedEntries.forEach(([node, data]) => {
         const item = document.createElement('div');
@@ -112,6 +127,13 @@ function updateDirectoryBreakdown() {
         count.className = 'directory-count';
         count.textContent = `${data.offer_count} offers`;
         infoContainer.appendChild(count);
+
+        if (data.bond_offer_count !== undefined) {
+            const bondCount = document.createElement('span');
+            bondCount.className = 'directory-bond-count';
+            bondCount.textContent = `${data.bond_offer_count} bonds`;
+            infoContainer.appendChild(bondCount);
+        }
 
         if (data.uptime_percentage !== undefined) {
             const uptime = document.createElement('span');
