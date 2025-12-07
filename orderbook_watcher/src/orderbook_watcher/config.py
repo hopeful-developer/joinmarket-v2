@@ -37,6 +37,8 @@ class Settings(BaseSettings):
     max_message_size: int = 2097152  # 2MB
     connection_timeout: float = 30.0
 
+    uptime_grace_period: int = 60  # seconds - grace period before tracking uptime
+
     def get_directory_nodes(self) -> list[tuple[str, int]]:
         if not self.directory_nodes:
             return []

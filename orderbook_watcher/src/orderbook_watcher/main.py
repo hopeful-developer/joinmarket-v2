@@ -52,6 +52,7 @@ async def run_watcher() -> None:
         timeout=settings.connection_timeout,
         mempool_api_url=settings.mempool_api_url,
         max_message_size=settings.max_message_size,
+        uptime_grace_period=settings.uptime_grace_period,
     )
 
     server = OrderbookServer(settings, aggregator)

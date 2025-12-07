@@ -18,7 +18,12 @@ from orderbook_watcher.directory_client import DirectoryClient
 
 
 class DirectoryNodeStatus:
-    def __init__(self, node_id: str) -> None:
+    def __init__(
+        self,
+        node_id: str,
+        tracking_started: datetime | None = None,
+        grace_period_seconds: int = 0,
+    ) -> None:
         self.node_id = node_id
         self.connected = False
         self.last_connected: datetime | None = None
@@ -27,12 +32,11 @@ class DirectoryNodeStatus:
         self.successful_connections = 0
         self.total_uptime_seconds = 0.0
         self.current_session_start: datetime | None = None
-        self.tracking_started: datetime | None = None
+        self.tracking_started = tracking_started or datetime.utcnow()
+        self.grace_period_seconds = grace_period_seconds
 
     def mark_connected(self, current_time: datetime | None = None) -> None:
         now = current_time or datetime.utcnow()
-        if not self.tracking_started:
-            self.tracking_started = now
         self.connected = True
         self.last_connected = now
         self.current_session_start = now
@@ -41,24 +45,52 @@ class DirectoryNodeStatus:
     def mark_disconnected(self, current_time: datetime | None = None) -> None:
         now = current_time or datetime.utcnow()
         if self.connected and self.current_session_start:
-            session_duration = (now - self.current_session_start).total_seconds()
-            self.total_uptime_seconds += session_duration
+            # Only count uptime after grace period
+            grace_end_ts = self.tracking_started.timestamp() + self.grace_period_seconds
+            session_start_ts = self.current_session_start.timestamp()
+            now_ts = now.timestamp()
+
+            # Calculate the actual uptime to record (only after grace period)
+            if now_ts > grace_end_ts:
+                # Some or all of the session is after grace period
+                counted_start = max(session_start_ts, grace_end_ts)
+                session_duration = now_ts - counted_start
+                self.total_uptime_seconds += max(0, session_duration)
+
         self.connected = False
         self.last_disconnected = now
         self.current_session_start = None
 
     def get_uptime_percentage(self, current_time: datetime | None = None) -> float:
-        if self.successful_connections == 0:
-            return 0.0
         if not self.tracking_started:
             return 0.0
         now = current_time or datetime.utcnow()
-        total_time = (now - self.tracking_started).total_seconds()
+        elapsed = (now - self.tracking_started).total_seconds()
+
+        # If we're still in grace period, return 100% uptime
+        if elapsed < self.grace_period_seconds:
+            return 100.0
+
+        # Calculate total time excluding grace period
+        total_time = elapsed - self.grace_period_seconds
         if total_time == 0:
             return 0.0
+
+        # Calculate uptime, but only count time after grace period ends
+        grace_end = self.tracking_started.timestamp() + self.grace_period_seconds
         current_uptime = self.total_uptime_seconds
+
         if self.connected and self.current_session_start:
-            current_uptime += (now - self.current_session_start).total_seconds()
+            # Only count uptime after grace period ended
+            session_start_ts = self.current_session_start.timestamp()
+            if session_start_ts < grace_end:
+                # Session started during grace period, only count time after grace ended
+                uptime_duration = now.timestamp() - grace_end
+            else:
+                # Session started after grace period
+                uptime_duration = (now - self.current_session_start).total_seconds()
+            current_uptime += max(0, uptime_duration)
+
         return (current_uptime / total_time) * 100.0
 
     def to_dict(self, current_time: datetime | None = None) -> dict[str, Any]:
@@ -72,6 +104,9 @@ class DirectoryNodeStatus:
             "connection_attempts": self.connection_attempts,
             "successful_connections": self.successful_connections,
             "uptime_percentage": round(self.get_uptime_percentage(current_time), 2),
+            "tracking_started": self.tracking_started.isoformat()
+            if self.tracking_started
+            else None,
         }
 
 
@@ -87,6 +122,7 @@ class OrderbookAggregator:
         max_retry_attempts: int = 3,
         retry_delay: float = 5.0,
         max_message_size: int = 2097152,
+        uptime_grace_period: int = 60,
     ) -> None:
         self.directory_nodes = directory_nodes
         self.network = network
@@ -97,6 +133,7 @@ class OrderbookAggregator:
         self.max_retry_attempts = max_retry_attempts
         self.retry_delay = retry_delay
         self.max_message_size = max_message_size
+        self.uptime_grace_period = uptime_grace_period
         socks_proxy = f"socks5://{socks_host}:{socks_port}"
         logger.info(f"Configuring MempoolAPI with SOCKS proxy: {socks_proxy}")
         mempool_timeout = 60.0
@@ -119,7 +156,9 @@ class OrderbookAggregator:
 
         for onion_address, port in directory_nodes:
             node_id = f"{onion_address}:{port}"
-            self.node_statuses[node_id] = DirectoryNodeStatus(node_id)
+            self.node_statuses[node_id] = DirectoryNodeStatus(
+                node_id, grace_period_seconds=uptime_grace_period
+            )
 
     def _handle_client_disconnect(self, onion_address: str, port: int) -> None:
         node_id = f"{onion_address}:{port}"

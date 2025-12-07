@@ -69,12 +69,16 @@ class OrderbookServer:
         offers_by_directory = orderbook.get_offers_by_directory()
         directory_stats = {}
         for node, offers in offers_by_directory.items():
-            directory_stats[node] = {"offer_count": len(offers)}
+            bond_offers = [o for o in offers if o.fidelity_bond_data]
+            directory_stats[node] = {
+                "offer_count": len(offers),
+                "bond_offer_count": len(bond_offers),
+            }
 
         for node_id in self.aggregator.directory_nodes:
             node_str = f"{node_id[0]}:{node_id[1]}"
             if node_str not in directory_stats:
-                directory_stats[node_str] = {"offer_count": 0}
+                directory_stats[node_str] = {"offer_count": 0, "bond_offer_count": 0}
 
         for node_id, status in self.aggregator.node_statuses.items():
             if node_id in directory_stats:
